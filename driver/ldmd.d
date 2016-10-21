@@ -128,6 +128,76 @@ static if (false)
 }
 
 
+/// Parses an enviroment variable for flags and returns them as a list of
+/// arguments.
+///
+/// This corresponds to getenv_setargv() in DMD, but we need to duplicate it
+/// here since it is defined as private in mars.d.
+string[] parseEnvVar(string envVarName)
+{
+    import std.process : enviroment;
+
+    string[] args;
+    string arg;
+    bool escape;
+    bool quote;
+
+    foreach(char c; environment.get(envVarName))
+    {
+        switch (c)
+        {
+            case '\\':
+                if (escape) arg ~= c;
+                escape = !escape;
+                break;
+            case '"':
+                if (escape)
+                {
+                    arg ~= c;
+                    escape = false;
+                }
+                else quote = !quote;
+                break;
+            case ' ':
+            case '\t':
+                if (quote) arg ~= c;
+                else if (arg.length)
+                {
+                    args ~= arg;
+                    arg = "";
+                }
+                break;
+            default:
+                if (escape) error(
+                    `unknown escape sequence in %s: \%s`,
+                    envVarName, c
+                );
+                arg ~= c;
+                break;
+        }
+    }
+
+    if (arg.length) args ~= arg;
+
+    return args;
+}
+
+unittest
+{
+    import std.process : environment;
+
+    enum varName = "LDMD_UNITTEST_PARSEENVVAR";
+    environment[varName] =
+        `-dflag1 -dflag2 -dflag3="some string with \\ \" chars and \\ "`;
+    auto args = parseEnvVar(varName);
+    environment.remove(varName);
+
+    assert(args.length == 3);
+    assert(args[0] == "-dflag1");
+    assert(args[1] == "-dflag2");
+    assert(args[2] == `-dflag3=some string with \ " chars and \ `);
+}
+
 // In driver/ldmd.cpp
 extern(C++) int cppmain(int argc, char **argv);
 
