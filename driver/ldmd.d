@@ -912,8 +912,21 @@ string findProgramByName(string exeName)
     }
     return "";
 }
-// In driver/ldmd.cpp
-extern(C++) int cppmain(int argc, char **argv);
+
+/// Tries to locate an executable with the given name, or an invalid path if
+/// nothing was found. Search paths:
+///    1. Directory where this binary resides.
+///    2. System PATH.
+string locateBinary(string exeName)
+{
+    import driver.exe_path : prependBinDir;
+
+    auto path = prependBinDir(exeName);
+    if (canExecute(path)) return path;
+
+    return findProgramByName(exeName);
+}
+
 
 
 /// Generate a unique filename based on provided model.
@@ -948,18 +961,69 @@ string getUniqueTempFile(string model)
     return result;
 }
 
+// In driver/exe_path.cpp
+extern(C++, exe_path) void initialize(const(char)* argv0);
 
 /+ Having a main() in D-source solves a few issues with building/linking with
  + DMD on Windows, with the extra benefit of implicitly initializing the D runtime.
  +/
-int main()
+int main(string[] args)
 {
+    import core.memory : GC;
+    import core.runtime : Runtime;
+    import std.string : toStringz;
+    import std.stdio : write, writeln;
+    import std.algorithm : map, sum;
+    import std.file : remove;
+
     // For now, even just the frontend does not work with GC enabled, so we need
     // to disable it entirely.
-    import core.memory;
     GC.disable();
 
-    import core.runtime;
-    auto args = Runtime.cArgs();
-    return cppmain(args.argc, cast(char**)args.argv);
+    // initialize exe_path C++ module
+    exe_path.initialize(toStringz(args[0]));
+
+    string ldcExeName = import("LDC_EXE_NAME");
+    // ".exe" is handled by findProgramByName
+    // version (Windows)
+    // {
+    //     ldcExeName ~= ".exe";
+    // }
+    string ldcPath = locateBinary(ldcExeName);
+    if (!ldcPath.length) error("Could not locate "~ldcExeName~"executable");
+
+    string[] ldcArgs = [ ldcPath ];
+    Params p = parseArgs(args, ldcPath);
+    buildCommandLine(ldcArgs, p);
+    if (p.vdmd)
+    {
+        write(" -- Invoking:");
+        foreach (arg; ldcArgs) write(" " ~ arg);
+        writeln();
+    }
+
+    // Check if we need to write out a response file.
+    // FIXME: is this really useful? response file is exanded into
+    //        command line args by LDMD, not processed by LDC
+    immutable totalLen = args.map!(a => a.length).sum();
+    if (totalLen > maxCommandLineLen())
+    {
+        // we need to write a response file
+        auto rspFn = getUniqueTempFile("ldmd-%%-%%-%%-%%.rsp");
+        {
+            import std.stdio : File;
+
+            auto rspF = File(rspFn, "w");
+            foreach (a; ldcArgs[1..$]) // leave out ldcArgs[0] (exe name)
+            {
+                rspF.writeln(a);
+            }
+        }
+        string rspArg = "@" ~ rspFn;
+        immutable code = execute([args[0]] ~ rspArg);
+        remove(rspFn);
+        return code;
+    }
+
+    return execute(ldcArgs);
 }
