@@ -44,21 +44,15 @@
 //===----------------------------------------------------------------------===//
 
 
-/// Exception representing a fatal error that will exit the program
-class FatalErrorException : Exception
-{
-    /// Builds the fatal error with msg
-    this(string msg)
-    {
-        super(msg);
-    }
-}
 
-/// Throws FatalErrorException with a formatted error message
+
+/// Prints a formatted error message to stderr and exit program
 void error(Args...)(string fmt, Args args)
 {
-    import std.format : format;
-    throw new FatalErrorException(format(fmt, args));
+    import std.stdio : stderr;
+    stderr.write("Error: ");
+    stderr.writefln(fmt, args);
+    cleanExit(1);
 }
 
 
@@ -68,6 +62,16 @@ void warning(Args...)(string fmt, Args args)
     import std.stdio : stderr;
     stderr.write("Warning: ");
     stderr.writefln(fmt, args);
+}
+
+
+/// Terminates D runtime and exits program
+void cleanExit(int exitCode=0)
+{
+    import core.runtime : Runtime;
+    import core.stdc.stdlib : exit;
+    Runtime.terminate();
+    exit(exitCode);
 }
 
 
