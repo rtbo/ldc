@@ -186,7 +186,7 @@ static if (false)
 /// here since it is defined as private in mars.d.
 string[] parseEnvVar(string envVarName)
 {
-    import std.process : enviroment;
+    import std.process : environment;
 
     string[] args;
     string arg;
