@@ -6,6 +6,42 @@
 // file for details.
 //
 //===----------------------------------------------------------------------===//
+//
+// Wrapper allowing use of LDC as drop-in replacement for DMD.
+//
+// The reason why full command line parsing is required instead of just
+// rewriting the names of a few switches is an annoying impedance mismatch
+// between the way how DMD handles arguments and the LLVM command line library:
+// DMD allows all switches to be specified multiple times – in case of
+// conflicts, the last one takes precedence. There is no easy way to replicate
+// this behavior with LLVM, save parsing the switches and re-emitting a cleaned
+// up string.
+//
+// DMD also reads switches from the DFLAGS enviroment variable, if present. This
+// is contrary to what C compilers do, where CFLAGS is usually handled by the
+// build system. Thus, conflicts like mentioned above occur quite frequently in
+// practice in makefiles written for DMD, as DFLAGS is also a natural name for
+// handling flags there.
+//
+// In order to maintain backwards compatibility with earlier versions of LDMD,
+// unknown switches are passed through verbatim to LDC. Finding a better
+// solution for this is tricky, as some of the LLVM arguments can be
+// intentionally specified multiple times to get a certain effect (e.g. pass,
+// linker options).
+//
+// Just as with the old LDMD script, arguments can be passed through unmodified
+// to LDC by using -Csomearg.
+//
+// If maintaining this wrapper is deemed too messy at some point, an alternative
+// would be to either extend the LLVM command line library to support the DMD
+// semantics (unlikely to happen), or to abandon it altogether (except for
+// passing the LLVM-defined flags to the various passes).
+//
+// Note: This program inherited ugly C-style string handling and memory leaks
+// from DMD, but this should not be a problem due to the short-livedness of
+// the process.
+//
+//===----------------------------------------------------------------------===//
 
 
 /// Exception representing a fatal error that will exit the program
