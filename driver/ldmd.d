@@ -845,8 +845,109 @@ size_t maxCommandLineLen()
     }
 }
 
+/// returns whether the given exeName has execution permissions
+bool canExecute(string exeName)
+{
+    version(Windows)
+    {
+        import std.file : exists;
+        return exists(exeName) || exists(exeName ~ ".exe");
+    }
+    version (Posix)
+    {
+        import core.sys.posix.unistd : access, R_OK, X_OK;
+        import std.string : toStringz;
+
+        enum mode = R_OK | X_OK;
+        return !access(toStringz(exeName), mode);
+    }
+}
+
+/// find a program by name within Path environment variable
+string findProgramByName(string exeName)
+{
+    version (Posix)
+    {
+        import std.algorithm : splitter;
+        import std.path : chainPath;
+        import std.process : environment;
+        import std.conv : to;
+
+        auto paths = splitter(environment["PATH"], ':');
+        foreach (p; paths)
+        {
+            auto exePath = chainPath(p, exeName).to!string;
+            if (canExecute(exePath)) return exePath;
+        }
+    }
+    version (Windows)
+    {
+        import std.algorithm : splitter;
+        import std.process : environment;
+        import std.conv : to;
+        import core.sys.windows.winbase : SearchPathW;
+
+        auto pathExts = environment.get("PATHEXT", ";.exe").splitter(';');
+        foreach (ext; pathExts)
+        {
+            enum bufSize = 1024;
+            wchar[bufSize] staticBuf;
+            wchar[] buf = staticBuf[];
+            immutable fullExeName = exeName ~ ext;
+            immutable len = SearchPathW(null, toStringz(fullExeName), null, bufSize, buf.ptr, null);
+            if (len > 0)
+            {
+                if (len > buf.length)
+                {
+                    buf = new wchar[len];
+                    enforce(SearchPathW(null, toStringz(fullExeName), null, len, buf.ptr, null) == len);
+                    return buf[0 .. len-1].to!string;
+                }
+                else
+                {
+                    return buf[0 .. len].to!string;
+                }
+            }
+        }
+    }
+    return "";
+}
 // In driver/ldmd.cpp
 extern(C++) int cppmain(int argc, char **argv);
+
+
+/// Generate a unique filename based on provided model.
+/// Every '%' in model will be replaced by a random hexa char (from 0 to f).
+/// The function checks that the proposed filename does not exist.
+string getUniqueTempFile(string model)
+{
+    import std.file : tempDir, exists, isDir;
+    import std.path : chainPath;
+    import std.conv : to;
+    import std.random : uniform;
+
+    string result;
+    immutable td = tempDir();
+    enum maxAttempts = 32;
+    int attempts = 0;
+    do
+    {
+        auto fn = model.dup;
+        foreach (ref c; fn)
+        {
+            if (c == '%') c = "0123456789abcdef"[uniform(0, 15)];
+        }
+        result = chainPath(td, fn).to!string;
+        ++attempts;
+    }
+    while(attempts < maxAttempts && (!exists(result) || isDir(result)));
+
+    if (attempts >= maxAttempts)
+        error("Cannot generate a unique file name");
+
+    return result;
+}
+
 
 /+ Having a main() in D-source solves a few issues with building/linking with
  + DMD on Windows, with the extra benefit of implicitly initializing the D runtime.
