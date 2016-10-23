@@ -44,6 +44,10 @@
 //===----------------------------------------------------------------------===//
 
 
+// We reuse DMD's response file parsing routine for maximum compatibilty - it
+// handles quotes in a very peculiar way.
+extern(C++) int response_expand(size_t *pargc, char ***pargv);
+extern(C++) void browse(const char *url);
 
 
 /// Prints a formatted error message to stderr and exit program
@@ -75,12 +79,17 @@ void cleanExit(int exitCode=0)
 }
 
 
+/// execute the given program with args
+int execute(string [] args)
+{
+    import std.process : spawnProcess, wait;
+    return wait(spawnProcess(args));
+}
+
+
 /// Print usage information to stdout
 void printUsage(in string argv0, in string ldcPath)
 {
-    import std.process : execute;
-    import std.stdio : stdout;
-
     auto fmt = "
 Usage:
   dmd files.d ... { -switch }
@@ -162,6 +171,8 @@ static if (false)
   -wi            warnings as messages (compilation will continue)
   -X             generate JSON file
   -Xffilename    write JSON file to filename\n\n";
+
+    import std.stdio : stdout;
 
     execute([ldcPath, "-version"]);
     stdout.writefln(fmt, argv0);
