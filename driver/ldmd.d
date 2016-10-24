@@ -888,6 +888,7 @@ string findProgramByName(string exeName)
         import std.algorithm : splitter;
         import std.process : environment;
         import std.conv : to;
+        import std.exception : enforce;
         import core.sys.windows.winbase : SearchPathW;
 
         auto pathExts = environment.get("PATHEXT", ";.exe").splitter(';');
@@ -896,14 +897,14 @@ string findProgramByName(string exeName)
             enum bufSize = 1024;
             wchar[bufSize] staticBuf;
             wchar[] buf = staticBuf[];
-            immutable fullExeName = exeName ~ ext;
-            immutable len = SearchPathW(null, toStringz(fullExeName), null, bufSize, buf.ptr, null);
+            immutable fullExeName = (exeName ~ ext ~ "\0").to!wstring;
+            immutable len = SearchPathW(null, fullExeName.ptr, null, bufSize, buf.ptr, null);
             if (len > 0)
             {
                 if (len > buf.length)
                 {
                     buf = new wchar[len];
-                    enforce(SearchPathW(null, toStringz(fullExeName), null, len, buf.ptr, null) == len);
+                    enforce(SearchPathW(null, fullExeName.ptr, null, len, buf.ptr, null) == len);
                     return buf[0 .. len-1].to!string;
                 }
                 else
