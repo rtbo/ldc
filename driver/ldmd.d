@@ -47,7 +47,9 @@
 // We reuse DMD's response file parsing routine for maximum compatibilty - it
 // handles quotes in a very peculiar way.
 extern(C++) int response_expand(size_t *pargc, char ***pargv);
-extern(C++) void browse(const char *url);
+
+// using std.process.browse
+//extern(C++) void browse(const char *url);
 
 
 /// Prints a formatted error message to stderr and exit program
@@ -623,6 +625,7 @@ Params parseArgs (string[] originalArgs, in string ldcPath)
             else if (p == "deps") result.printModuleDeps = true;
             else if (p == "man")
             {
+                import std.process : browse;
                 browse("http://wiki.dlang.org/LDC");
                 cleanExit(0);
             }
