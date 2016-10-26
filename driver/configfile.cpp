@@ -55,13 +55,13 @@ static bool ReadPathFromRegistry(llvm::SmallString<128> &p) {
   HKEY hkey;
   bool res = false;
   // FIXME: Version number should be a define.
-  if (RegOpenKeyEx(HKEY_LOCAL_MACHINE, "SOFTWARE\\ldc-developers\\LDC\\0.11.0",
+  if (RegOpenKeyExA(HKEY_LOCAL_MACHINE, "SOFTWARE\\ldc-developers\\LDC\\0.11.0",
                    NULL, KEY_QUERY_VALUE, &hkey) == ERROR_SUCCESS) {
     DWORD length;
-    if (RegGetValue(hkey, NULL, "Path", RRF_RT_REG_SZ, NULL, NULL, &length) ==
+    if (RegGetValueA(hkey, NULL, "Path", RRF_RT_REG_SZ, NULL, NULL, &length) ==
         ERROR_SUCCESS) {
       char *data = static_cast<char *>(_alloca(length));
-      if (RegGetValue(hkey, NULL, "Path", RRF_RT_REG_SZ, NULL, data, &length) ==
+      if (RegGetValueA(hkey, NULL, "Path", RRF_RT_REG_SZ, NULL, data, &length) ==
           ERROR_SUCCESS) {
         p = std::string(data);
         res = true;

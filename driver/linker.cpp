@@ -339,7 +339,7 @@ std::string quoteArg(const std::string &arg) {
 }
 
 int executeAndWait(const char *commandLine) {
-  STARTUPINFO si;
+  STARTUPINFOA si;
   ZeroMemory(&si, sizeof(si));
   si.cb = sizeof(si);
 
@@ -350,7 +350,7 @@ int executeAndWait(const char *commandLine) {
 
   // according to MSDN, only CreateProcessW (unicode) may modify the passed
   // command line
-  if (!CreateProcess(NULL, const_cast<char *>(commandLine), NULL, NULL, TRUE, 0,
+  if (!CreateProcessA(NULL, const_cast<char *>(commandLine), NULL, NULL, TRUE, 0,
                      NULL, NULL, &si, &pi)) {
     exitCode = -1;
   } else {
